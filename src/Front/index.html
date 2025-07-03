@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #chat-container { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; margin-bottom: 10px; }
+    #message-input { width: calc(100% - 90px); padding: 8px; }
+    #send-button { padding: 8px 15px; }
+    .message { margin-bottom: 5px; }
+    .system-message { color: gray; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Chat</h1>
+  <div id="chat-container"></div>
+  <input type="text" id="message-input" placeholder="Escribe tu mensaje..." />
+  <button id="send-button">Enviar</button>
+
+  <!-- Cliente Socket.IO -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io('http://localhost:3000'); // Asegúrate que coincide con el puerto de NestJS
+
+    const chatContainer = document.getElementById('chat-container');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+
+    function appendMessage(text, className = 'message') {
+      const p = document.createElement('p');
+      p.className = className;
+      p.textContent = text;
+      chatContainer.appendChild(p);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Conectado
+    socket.on('connect', () => {
+      appendMessage('Conectado al chat.', 'system-message');
+    });
+
+    // Desconectado
+    socket.on('disconnect', () => {
+      appendMessage('Desconectado del chat.', 'system-message');
+    });
+
+    // Recibir mensajes
+    socket.on('chatMessage', (data) => {
+      appendMessage(`${data.senderId}: ${data.message}`);
+    });
+
+    // Notificaciones de conexión/desconexión
+    socket.on('userConnected', (msg) => appendMessage(msg, 'system-message'));
+    socket.on('userDisconnected', (msg) => appendMessage(msg, 'system-message'));
+
+    // Enviar mensaje
+    sendButton.addEventListener('click', () => {
+      const message = messageInput.value.trim();
+      if (message) {
+        socket.emit('chatMessage', message);
+        messageInput.value = '';
+      }
+    });
+
+    // Presionar Enter
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendButton.click();
+      }
+    });
+  </script>
+</body>
+</html>
