@@ -1,39 +1,42 @@
+import { OnModuleInit } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
   MessageBody,
-  ConnectedSocket,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+
+import { Server } from 'socket.io';
+import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices';
+
+// Resto del código...
+
 
 @WebSocketGateway({
   cors: {
     origin: '*',
   },
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnModuleInit {
   @WebSocketServer()
   server: Server;
 
-  handleConnection(client: Socket) {
-    console.log(`Cliente conectado: ${client.id}`);
-    this.server.emit('userConnected', `Usuario ${client.id} se ha unido al chat.`);
-  }
+  private client: ClientProxy;
 
-  handleDisconnect(client: Socket) {
-    console.log(`Cliente desconectado: ${client.id}`);
-    this.server.emit('userDisconnected', `Usuario ${client.id} ha salido del chat.`);
+  onModuleInit() {
+    this.client = ClientProxyFactory.create({
+      transport: Transport.TCP,
+      options: {
+        host: '127.0.0.1',
+        port: 3010,
+      },
+    });
   }
 
   @SubscribeMessage('chatMessage')
-  handleMessage(
-    @MessageBody() message: string,
-    @ConnectedSocket() client: Socket,
-  ) {
-    console.log(`Mensaje de ${client.id}: ${message}`);
-    this.server.emit('chatMessage', { senderId: client.id, message });
+  async handleMessage(@MessageBody() data: { user: string; message: string }) {
+    const response = await this.client.send('chat_message', data).toPromise();
+    this.server.emit('chatMessage', data);
+    return response;
   }
 }
